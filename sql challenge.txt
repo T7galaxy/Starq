@@ -1,0 +1,85 @@
+SELECT * FROM "customer";
+
+SELECT * FROM "customer"
+WHERE State ='AZ';
+
+SELECT * FROM invoice
+WHERE invoice_date < NOW() - INTERVAL '6 MONTH';
+
+UPDATE customer
+    SET Phone = NULL
+    WHERE Phone !~'^\\+[0-9]{1,3} [0-9]{3} [0-9]{3}-[0-9]{4}$';
+
+SELECT Name, milliseconds
+FROM Track
+WHERE milliseconds > 180000;
+
+UPDATE Customer
+SET Country = 'USA',
+    Address = NULL,
+    City = NULL,
+    State = NULL
+WHERE Country != 'USA';
+
+CREATE OR REPLACE FUNCTION total_spending(cid INT)
+RETURNS NUMERIC AS $$
+BEGIN
+    RETURN (
+        SELECT SUM(Total)
+        FROM Invoice
+        WHERE customer_id = cid
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT total_spending(5);
+
+
+CREATE OR REPLACE PROCEDURE new_manager(eid INT, nmid INT)
+AS $$
+BEGIN
+    IF eid = nmid THEN
+        RAISE EXCEPTION 'Employee cannot self report';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM employee WHERE employee_id = nmid) THEN
+        RAISE EXCEPTION 'Managerdoes not exist';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM employee WHERE employee_id = nmid AND reports_to = eid) 
+    THEN
+        RAISE EXCEPTION 'This creates a circular management relationship';
+    END IF;
+
+    UPDATE employee
+    SET reports_to = nmid
+    WHERE employee_id = eid;
+END;
+$$ LANGUAGE plpgsql;
+
+CALL new_manager(5, 3);
+
+SELECT employee_id, reports_to
+FROM employee
+WHERE employee_id = 5;
+
+CREATE SCHEMA pets;
+
+CREATE TABLE pets.customer (
+    cid SERIAL PRIMARY KEY,
+    name        VARCHAR(100)
+);
+
+CREATE TABLE pets.pets (
+    pid      SERIAL PRIMARY KEY,
+    cid INT REFERENCES pets.customer(cid),
+    name        VARCHAR(100)
+);
+
+INSERT INTO pets.customer (name)
+VALUES ('John marston'),
+       ('Arthur Morgan');
+
+INSERT INTO pets.pets (cid, name)
+VALUES (1, 'Morgana'),
+       (2, 'Emil');

@@ -1,0 +1,53 @@
+SELECT i.invoice_id, c.first_name, c.last_name, i.total
+FROM invoice i
+JOIN customer c ON i.customer_id = c.customer_id;
+
+SELECT i.invoice_id, c.first_name, i.total
+FROM invoice i
+JOIN customer c ON i.customer_id = c.customer_id
+WHERE i.total > 30;
+
+WITH usa_customers AS (
+    SELECT customer_id
+    FROM customer
+    WHERE country = 'USA'
+)
+SELECT *
+FROM invoice i
+JOIN usa_customers u ON i.customer_id = u.customer_id
+WHERE i.invoice_date > NOW() - INTERVAL '6 MONTH';
+;
+
+CREATE TABLE record_logs (
+  log_id        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  record_id     INT,
+  field_changed TEXT,
+  last_update   TIMESTAMPTZ DEFAULT NOW(),
+  old_value     TEXT,
+  new_value     TEXT
+);
+
+CREATE OR REPLACE FUNCTION log_customer_changes()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    old_row JSONB := to_jsonb(OLD);
+    new_row JSONB := to_jsonb(NEW);
+    key TEXT;
+BEGIN
+    FOR key IN SELECT jsonb_object_keys(old_row) LOOP
+        IF old_row ->> key IS DISTINCT FROM new_row ->> key THEN
+            INSERT INTO record_logs (record_id, field_changed, old_value, new_value)
+            VALUES (OLD.customer_id, key, old_row ->> key, new_row ->> key);
+        END IF;
+    END LOOP;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER customer_update_trigger
+AFTER UPDATE ON customer
+FOR EACH ROW
+EXECUTE FUNCTION log_customer_changes();

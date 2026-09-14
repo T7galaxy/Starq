@@ -32,13 +32,13 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    old_row JSONB := to_jsonb(OLD);
-    new_row JSONB := to_jsonb(NEW);
+    old_row JSONB := to_jsonb(OLD);--assigns old row
+    new_row JSONB := to_jsonb(NEW);--assigns new row
     key TEXT;
 BEGIN
-    FOR key IN SELECT jsonb_object_keys(old_row) LOOP
-        IF old_row ->> key IS DISTINCT FROM new_row ->> key THEN
-            INSERT INTO record_logs (record_id, field_changed, old_value, new_value)
+    FOR key IN SELECT jsonb_object_keys(old_row) LOOP--iterates through each key in the old row
+        IF old_row ->> key IS DISTINCT FROM new_row ->> key THEN--if old value is different from new value
+            INSERT INTO record_logs (record_id, field_changed, old_value, new_value)--inserts values into records
             VALUES (OLD.customer_id, key, old_row ->> key, new_row ->> key);
         END IF;
     END LOOP;
